@@ -1,7 +1,8 @@
 export class WeddingGuest {
   id: string;
-  name: string;
-  email: string;
-  confirmed: boolean;
-  plusOne?: string;
+  nombre: string;
+  adicionales?: number;
+  estado_invitacion?: string;
+  estado_aceptacion?: string;
+  posible_invitado?: number;
 }

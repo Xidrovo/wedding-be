@@ -1,19 +1,23 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsOptional } from 'class-validator';
 
 export class CreateWeddingGuestDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  nombre: string;
 
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
-
-  @IsBoolean()
+  @IsNumber()
   @IsOptional()
-  confirmed?: boolean;
-  
+  adicionales?: number;
+
   @IsString()
   @IsOptional()
-  plusOne?: string;
+  estado_invitacion?: string;
+
+  @IsString()
+  @IsOptional()
+  estado_aceptacion?: string;
+
+  @IsNumber()
+  @IsOptional()
+  posible_invitado?: number;
 }

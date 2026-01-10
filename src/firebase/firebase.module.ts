@@ -10,8 +10,21 @@ import firebaseConfig from '../config/firebase.config';
     {
       provide: 'FIREBASE_APP',
       useFactory: (config: ConfigType<typeof firebaseConfig>) => {
-        try {
-          // TRY 1: Load from service-account.json (Recommended for local dev)
+        try {          
+          if (config.useEmulator) {            
+            process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+                        
+            const EMULATOR_PROJECT_ID = 'demo-wedding-project';
+            
+            console.log(`Firestore Emulator connected to project: ${EMULATOR_PROJECT_ID}`);
+                        
+            const app = admin.initializeApp({
+              projectId: EMULATOR_PROJECT_ID,
+            }, 'EMULATOR_APP'); 
+            
+            return app;
+          }
+                              
           const serviceAccountPath = require('path').resolve('./service-account.json');
           const fs = require('fs');
           
@@ -23,7 +36,6 @@ import firebaseConfig from '../config/firebase.config';
             });
           }
 
-          // TRY 2: Fallback to .env (For production/CI)
           console.log('⚠️ service-account.json not found, falling back to .env');
           const firebaseParams = {
             credential: admin.credential.cert({
@@ -41,11 +53,21 @@ import firebaseConfig from '../config/firebase.config';
       inject: [firebaseConfig.KEY],
     },
     {
-        provide: 'FIRESTORE',
-        useFactory: (app: admin.app.App) => {
-            return app.firestore();
-        },
-        inject: ['FIREBASE_APP'],
+      provide: 'FIRESTORE',
+      useFactory: (app: admin.app.App, config: ConfigType<typeof firebaseConfig>) => {
+        const firestore = app.firestore();
+        
+        // Connect to emulator explicitly if in development mode
+        if (config.useEmulator) {
+           firestore.settings({
+             host: '127.0.0.1:8080',
+             ssl: false
+           });
+        }
+        
+        return firestore;
+      },
+      inject: ['FIREBASE_APP', firebaseConfig.KEY],
     }
   ],
   exports: ['FIREBASE_APP', 'FIRESTORE'],

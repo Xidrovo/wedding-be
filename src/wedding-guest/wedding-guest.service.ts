@@ -10,9 +10,18 @@ export class WeddingGuestService {
   constructor(@Inject('FIRESTORE') private readonly firestore: Firestore) {}
 
   async create(createWeddingGuestDto: CreateWeddingGuestDto): Promise<WeddingGuest> {
-    const docRef = await this.firestore.collection(this.collectionName).add(createWeddingGuestDto);
-    const doc = await docRef.get();
-    return { id: doc.id, ...doc.data() } as WeddingGuest;
+    try {
+      const docRef = await this.firestore.collection(this.collectionName).add(createWeddingGuestDto);
+      const doc = await docRef.get();
+      const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
+      
+      console.log(`New usuario ${guest.nombre} added with id: ${guest.id}`);
+      
+      return guest;
+    } catch (error) {
+      console.error('Error creating document:', error);
+      throw error;
+    }
   }
 
   async findAll(): Promise<WeddingGuest[]> {
