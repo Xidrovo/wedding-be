@@ -1,17 +1,40 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
-import { WeddingGuest } from './entities/wedding-guest.entity';
-import { Firestore } from 'firebase-admin/firestore';
+import { InvitationStatus, WeddingGuest } from './entities/wedding-guest.entity';
+import { Firestore, Timestamp } from 'firebase-admin/firestore';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class WeddingGuestService {
-  private collectionName = 'wedding_guest_list';
+  private collectionName = 'wedding-guests'; // Changed per user request
 
   constructor(@Inject('FIRESTORE') private readonly firestore: Firestore) {}
 
+  generateToken(): string {
+    return crypto.randomBytes(32).toString('base64url');
+  }
+
+  buildGuestUrl(token: string): string {
+    const baseUrl = process.env.BASE_URL || 'http://localhost:4321'; // Default or from env
+    return `${baseUrl}/i/${token}`;
+  }
+
   async create(createWeddingGuestDto: CreateWeddingGuestDto): Promise<WeddingGuest> {
     try {
-      const docRef = await this.firestore.collection(this.collectionName).add(createWeddingGuestDto);
+      // Auto-generate token and URL if not provided
+      const token = createWeddingGuestDto.token || this.generateToken();
+      const guestUrl = createWeddingGuestDto.guest_url || this.buildGuestUrl(token);
+
+      const newItem = {
+        ...createWeddingGuestDto,
+        token,
+        guest_url: guestUrl,
+        estado_invitacion: createWeddingGuestDto.estado_invitacion || InvitationStatus.PENDING,
+        created_at: Timestamp.now(),
+        updated_at: Timestamp.now(),
+      };
+
+      const docRef = await this.firestore.collection(this.collectionName).add(newItem);
       const doc = await docRef.get();
       const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
       
@@ -35,5 +58,118 @@ export class WeddingGuestService {
       throw new NotFoundException(`Wedding guest with ID ${id} not found`);
     }
     return { id: doc.id, ...doc.data() } as WeddingGuest;
+  }
+
+  async rotateUrl(id: string): Promise<{ guest_url: string }> {
+    await this.findOne(id);
+    const newToken = this.generateToken();
+    const newUrl = this.buildGuestUrl(newToken);
+
+    await this.firestore.collection(this.collectionName).doc(id).update({
+      token: newToken,
+      guest_url: newUrl,
+      updated_at: Timestamp.now(),
+    });
+
+    return { guest_url: newUrl };
+  }
+
+  async importFromCsv(rows: any[]): Promise<void> {
+    const batch = this.firestore.batch();
+    const collectionRef = this.firestore.collection(this.collectionName);
+
+    // Fetch all existing guests to check for duplicates by Name (normalized)
+    const snapshot = await collectionRef.get();
+    const existingGuests = new Map<string, any>();
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.nombre) existingGuests.set(data.nombre.trim().toLowerCase(), { id: doc.id, ...data });
+    });
+
+    let operationsCount = 0;
+
+    for (const row of rows) {
+      const name = row.nombre?.trim();
+      if (!name) continue;
+
+      const normalizedName = name.toLowerCase();
+      const existing = existingGuests.get(normalizedName);
+
+      if (existing) {
+        // Update existing (preserve token/url)
+        const docRef = collectionRef.doc(existing.id);
+        const updateData: any = {
+          adicionales: row.adicionales ? Number(row.adicionales) : existing.adicionales,
+          updated_at: Timestamp.now(),
+        };
+        // Update other fields if necessary
+        batch.update(docRef, updateData);
+      } else {
+        // Create new
+        const docRef = collectionRef.doc();
+        const token = this.generateToken();
+        const guestUrl = this.buildGuestUrl(token);
+        const newItem = {
+          nombre: name,
+          adicionales: row.adicionales ? Number(row.adicionales) : 0,
+          token,
+          guest_url: guestUrl,
+          estado_invitacion: InvitationStatus.PENDING,
+          created_at: Timestamp.now(),
+          updated_at: Timestamp.now(),
+        };
+        batch.set(docRef, newItem);
+      }
+      
+      operationsCount++;
+    }
+    
+    if (operationsCount > 0) {
+        await batch.commit();
+    }
+  }
+
+  async registerVisit(token: string): Promise<WeddingGuest> {
+    const guests = await this.findAll();
+    const guest = guests.find(g => g.token === token);
+    
+    if (!guest) {
+      throw new NotFoundException('Invalid token');
+    }
+
+    if (!guest.first_visit_at) {
+      await this.firestore.collection(this.collectionName).doc(guest.id).update({
+        first_visit_at: Timestamp.now(),
+        updated_at: Timestamp.now(),
+      });
+      guest.first_visit_at = Timestamp.now();
+    }
+
+    return guest;
+  }
+
+  async updateRsvp(token: string, status: InvitationStatus, plusOnes?: number): Promise<WeddingGuest> {
+    const guests = await this.findAll();
+    const guest = guests.find(g => g.token === token);
+    
+    if (!guest) {
+      throw new NotFoundException('Invalid token');
+    }
+
+    const updateData: any = {
+      estado_invitacion: status,
+      updated_at: Timestamp.now(),
+    };
+
+    if (status === InvitationStatus.ACCEPTED) {
+      updateData.accepted_at = Timestamp.now();
+      if (plusOnes !== undefined) {
+        updateData.plus_ones_selected = plusOnes;
+      }
+    }
+
+    await this.firestore.collection(this.collectionName).doc(guest.id).update(updateData);
+    
+    return { ...guest, ...updateData };
   }
 }
