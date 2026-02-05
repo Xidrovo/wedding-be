@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
 import { InvitationStatus, WeddingGuest } from './entities/wedding-guest.entity';
 import { Firestore, Timestamp } from 'firebase-admin/firestore';
@@ -31,6 +31,7 @@ export class WeddingGuestService {
         guest_url: guestUrl,
         estado_invitacion: createWeddingGuestDto.estado_invitacion || InvitationStatus.PENDING,
         created_at: Timestamp.now(),
+        limit_date: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
         updated_at: Timestamp.now(),
       };
 
@@ -116,6 +117,7 @@ export class WeddingGuestService {
           guest_url: guestUrl,
           estado_invitacion: InvitationStatus.PENDING,
           created_at: Timestamp.now(),
+          limit_date: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
           updated_at: Timestamp.now(),
         };
         batch.set(docRef, newItem);
@@ -154,6 +156,20 @@ export class WeddingGuestService {
     
     if (!guest) {
       throw new NotFoundException('Invalid token');
+    }
+
+    const now = Date.now();
+    let limitTime = 0;
+
+    if (guest.limit_date) {
+      limitTime = guest.limit_date.toMillis();
+    } else if (guest.created_at) {
+      // 30 days = 30 * 24 * 60 * 60 * 1000 = 2592000000 ms
+      limitTime = guest.created_at.toMillis() + 2592000000;
+    }
+
+    if (limitTime > 0 && now > limitTime) {
+      throw new BadRequestException('The deadline to respond has passed');
     }
 
     const updateData: any = {

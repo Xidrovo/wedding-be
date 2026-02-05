@@ -24,6 +24,7 @@ export class WeddingGuest {
   accepted_at?: Timestamp | null;
   
   created_at?: Timestamp;
+  limit_date?: Timestamp;
   updated_at?: Timestamp;
 
   // Legacy/Optional?
