@@ -39,6 +39,7 @@ desktop.ini
 *.log
 *.sqlite
 *.db
+coverage/
 
 # Environment variables
 .env
@@ -52,3 +53,4 @@ tmp/
 temp/
 
 data/
+service-account.json
