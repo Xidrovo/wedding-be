@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Headers, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { WeddingGuestService } from './wedding-guest.service';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
 import { AdminAuthGuard } from '../auth/admin.guard';
@@ -34,9 +42,20 @@ export class WeddingGuestController {
   }
 
   @Post('invites/rsvp')
-  rsvp(@Body() body: { token: string, estado_invitacion: InvitationStatus, plus_ones_selected?: number }) {
+  rsvp(
+    @Body()
+    body: {
+      token: string;
+      estado_invitacion: InvitationStatus;
+      plus_ones_selected?: number;
+    },
+  ) {
     if (!body.token) throw new UnauthorizedException('Token required');
-    return this.weddingGuestService.updateRsvp(body.token, body.estado_invitacion, body.plus_ones_selected);
+    return this.weddingGuestService.updateRsvp(
+      body.token,
+      body.estado_invitacion,
+      body.plus_ones_selected,
+    );
   }
 
   @Get()

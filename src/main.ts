@@ -1,4 +1,3 @@
-// MUST be first import - sets emulator env vars
 import './bootstrap';
 
 import { NestFactory } from '@nestjs/core';
@@ -17,5 +16,3 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
-
-

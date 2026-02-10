@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WeddingGuestService } from './wedding-guest.service';
-import { InvitationStatus, WeddingGuest } from './entities/wedding-guest.entity';
+import {
+  InvitationStatus,
+  WeddingGuest,
+} from './entities/wedding-guest.entity';
 import { Timestamp } from 'firebase-admin/firestore';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
@@ -93,9 +96,7 @@ describe('WeddingGuestService', () => {
       };
 
       collectionMock.get.mockResolvedValue({
-        docs: [
-          { id: guestId, data: () => mockGuest }
-        ]
+        docs: [{ id: guestId, data: () => mockGuest }],
       });
 
       await service.updateRsvp(token, InvitationStatus.ACCEPTED);
@@ -118,14 +119,12 @@ describe('WeddingGuestService', () => {
       };
 
       collectionMock.get.mockResolvedValue({
-        docs: [
-          { id: guestId, data: () => mockGuest }
-        ]
+        docs: [{ id: guestId, data: () => mockGuest }],
       });
 
-      await expect(service.updateRsvp(token, InvitationStatus.ACCEPTED))
-        .rejects
-        .toThrow(BadRequestException);
+      await expect(
+        service.updateRsvp(token, InvitationStatus.ACCEPTED),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should calculate limit date from created_at if limit_date missing (backward compatibility)', async () => {
@@ -133,7 +132,9 @@ describe('WeddingGuestService', () => {
       const guestId = 'guest-id';
 
       // created_at 31 days ago (expired)
-      const oldCreation = Timestamp.fromDate(new Date(Date.now() - 31 * 24 * 60 * 60 * 1000));
+      const oldCreation = Timestamp.fromDate(
+        new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+      );
 
       const mockGuest = {
         id: guestId,
@@ -143,22 +144,22 @@ describe('WeddingGuestService', () => {
       };
 
       collectionMock.get.mockResolvedValue({
-        docs: [
-          { id: guestId, data: () => mockGuest }
-        ]
+        docs: [{ id: guestId, data: () => mockGuest }],
       });
 
-      await expect(service.updateRsvp(token, InvitationStatus.ACCEPTED))
-        .rejects
-        .toThrow(BadRequestException);
+      await expect(
+        service.updateRsvp(token, InvitationStatus.ACCEPTED),
+      ).rejects.toThrow(BadRequestException);
     });
 
-     it('should allow update if limit_date missing but created_at is recent (backward compatibility)', async () => {
+    it('should allow update if limit_date missing but created_at is recent (backward compatibility)', async () => {
       const token = 'recent-token';
       const guestId = 'guest-id';
 
       // created_at 1 day ago (valid)
-      const recentCreation = Timestamp.fromDate(new Date(Date.now() - 1 * 24 * 60 * 60 * 1000));
+      const recentCreation = Timestamp.fromDate(
+        new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      );
 
       const mockGuest = {
         id: guestId,
@@ -168,13 +169,11 @@ describe('WeddingGuestService', () => {
       };
 
       collectionMock.get.mockResolvedValue({
-        docs: [
-          { id: guestId, data: () => mockGuest }
-        ]
+        docs: [{ id: guestId, data: () => mockGuest }],
       });
 
-       await service.updateRsvp(token, InvitationStatus.ACCEPTED);
-       expect(docMock.update).toHaveBeenCalled();
+      await service.updateRsvp(token, InvitationStatus.ACCEPTED);
+      expect(docMock.update).toHaveBeenCalled();
     });
   });
 });

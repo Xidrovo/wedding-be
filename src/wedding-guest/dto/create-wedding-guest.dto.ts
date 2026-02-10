@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 import { InvitationStatus } from '../entities/wedding-guest.entity';
 
 export class CreateWeddingGuestDto {
@@ -25,7 +31,7 @@ export class CreateWeddingGuestDto {
   @IsNumber()
   @IsOptional()
   posible_invitado?: number;
-  
+
   // Backwards compatibility or specific override
   @IsString()
   @IsOptional()

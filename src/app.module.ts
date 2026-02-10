@@ -5,7 +5,6 @@ import { AppService } from './app.service';
 import { FirebaseModule } from './firebase/firebase.module';
 import { WeddingGuestModule } from './wedding-guest/wedding-guest.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({

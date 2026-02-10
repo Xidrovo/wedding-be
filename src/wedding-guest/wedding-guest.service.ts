@@ -1,11 +1,21 @@
-import { Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
-import { InvitationStatus, WeddingGuest } from './entities/wedding-guest.entity';
+import {
+  InvitationStatus,
+  WeddingGuest,
+} from './entities/wedding-guest.entity';
 import { Firestore, Timestamp } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class WeddingGuestService {
+  private readonly logger = new Logger(WeddingGuestService.name);
   private collectionName = 'wedding-guests'; // Changed per user request
 
   constructor(@Inject('FIRESTORE') private readonly firestore: Firestore) {}
@@ -19,42 +29,55 @@ export class WeddingGuestService {
     return `${baseUrl}/i/${token}`;
   }
 
-  async create(createWeddingGuestDto: CreateWeddingGuestDto): Promise<WeddingGuest> {
+  async create(
+    createWeddingGuestDto: CreateWeddingGuestDto,
+  ): Promise<WeddingGuest> {
     try {
       // Auto-generate token and URL if not provided
       const token = createWeddingGuestDto.token || this.generateToken();
-      const guestUrl = createWeddingGuestDto.guest_url || this.buildGuestUrl(token);
+      const guestUrl =
+        createWeddingGuestDto.guest_url || this.buildGuestUrl(token);
 
       const newItem = {
         ...createWeddingGuestDto,
         token,
         guest_url: guestUrl,
-        estado_invitacion: createWeddingGuestDto.estado_invitacion || InvitationStatus.PENDING,
+        estado_invitacion:
+          createWeddingGuestDto.estado_invitacion || InvitationStatus.PENDING,
         created_at: Timestamp.now(),
-        limit_date: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+        limit_date: Timestamp.fromDate(
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        ),
         updated_at: Timestamp.now(),
       };
 
-      const docRef = await this.firestore.collection(this.collectionName).add(newItem);
+      const docRef = await this.firestore
+        .collection(this.collectionName)
+        .add(newItem);
       const doc = await docRef.get();
       const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
-      
-      console.log(`New usuario ${guest.nombre} added with id: ${guest.id}`);
-      
+
+      this.logger.log(`New usuario ${guest.nombre} added with id: ${guest.id}`);
+
       return guest;
     } catch (error) {
-      console.error('Error creating document:', error);
+      this.logger.error('Error creating document:', error);
       throw error;
     }
   }
 
   async findAll(): Promise<WeddingGuest[]> {
     const snapshot = await this.firestore.collection(this.collectionName).get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeddingGuest));
+    return snapshot.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() }) as WeddingGuest,
+    );
   }
 
   async findOne(id: string): Promise<WeddingGuest> {
-    const doc = await this.firestore.collection(this.collectionName).doc(id).get();
+    const doc = await this.firestore
+      .collection(this.collectionName)
+      .doc(id)
+      .get();
     if (!doc.exists) {
       throw new NotFoundException(`Wedding guest with ID ${id} not found`);
     }
@@ -82,9 +105,13 @@ export class WeddingGuestService {
     // Fetch all existing guests to check for duplicates by Name (normalized)
     const snapshot = await collectionRef.get();
     const existingGuests = new Map<string, any>();
-    snapshot.docs.forEach(doc => {
+    snapshot.docs.forEach((doc) => {
       const data = doc.data();
-      if (data.nombre) existingGuests.set(data.nombre.trim().toLowerCase(), { id: doc.id, ...data });
+      if (data.nombre)
+        existingGuests.set(data.nombre.trim().toLowerCase(), {
+          id: doc.id,
+          ...data,
+        });
     });
 
     let operationsCount = 0;
@@ -100,7 +127,9 @@ export class WeddingGuestService {
         // Update existing (preserve token/url)
         const docRef = collectionRef.doc(existing.id);
         const updateData: any = {
-          adicionales: row.adicionales ? Number(row.adicionales) : existing.adicionales,
+          adicionales: row.adicionales
+            ? Number(row.adicionales)
+            : existing.adicionales,
           updated_at: Timestamp.now(),
         };
         // Update other fields if necessary
@@ -117,46 +146,60 @@ export class WeddingGuestService {
           guest_url: guestUrl,
           estado_invitacion: InvitationStatus.PENDING,
           created_at: Timestamp.now(),
-          limit_date: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+          limit_date: Timestamp.fromDate(
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          ),
           updated_at: Timestamp.now(),
         };
         batch.set(docRef, newItem);
       }
-      
+
       operationsCount++;
     }
-    
+
     if (operationsCount > 0) {
-        await batch.commit();
+      await batch.commit();
     }
   }
 
-  async registerVisit(token: string): Promise<WeddingGuest> {
-    const guests = await this.findAll();
-    const guest = guests.find(g => g.token === token);
-    
-    if (!guest) {
+  async findByToken(token: string): Promise<WeddingGuest> {
+    const snapshot = await this.firestore
+      .collection(this.collectionName)
+      .where('token', '==', token)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
       throw new NotFoundException('Invalid token');
     }
 
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as WeddingGuest;
+  }
+
+  async registerVisit(token: string): Promise<WeddingGuest> {
+    const guest = await this.findByToken(token);
+    
     if (!guest.first_visit_at) {
-      await this.firestore.collection(this.collectionName).doc(guest.id).update({
-        first_visit_at: Timestamp.now(),
-        updated_at: Timestamp.now(),
-      });
+      await this.firestore
+        .collection(this.collectionName)
+        .doc(guest.id)
+        .update({
+          first_visit_at: Timestamp.now(),
+          updated_at: Timestamp.now(),
+        });
       guest.first_visit_at = Timestamp.now();
     }
 
     return guest;
   }
 
-  async updateRsvp(token: string, status: InvitationStatus, plusOnes?: number): Promise<WeddingGuest> {
-    const guests = await this.findAll();
-    const guest = guests.find(g => g.token === token);
-    
-    if (!guest) {
-      throw new NotFoundException('Invalid token');
-    }
+  async updateRsvp(
+    token: string,
+    status: InvitationStatus,
+    plusOnes?: number,
+  ): Promise<WeddingGuest> {
+    const guest = await this.findByToken(token);
 
     const now = Date.now();
     let limitTime = 0;
@@ -184,8 +227,11 @@ export class WeddingGuestService {
       }
     }
 
-    await this.firestore.collection(this.collectionName).doc(guest.id).update(updateData);
-    
+    await this.firestore
+      .collection(this.collectionName)
+      .doc(guest.id)
+      .update(updateData);
+
     return { ...guest, ...updateData };
   }
 }
