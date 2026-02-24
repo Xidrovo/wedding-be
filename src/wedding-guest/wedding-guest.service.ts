@@ -46,7 +46,7 @@ export class WeddingGuestService {
           createWeddingGuestDto.estado_invitacion || InvitationStatus.PENDING,
         created_at: Timestamp.now(),
         limit_date: Timestamp.fromDate(
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         ),
         updated_at: Timestamp.now(),
       };
@@ -147,7 +147,7 @@ export class WeddingGuestService {
           estado_invitacion: InvitationStatus.PENDING,
           created_at: Timestamp.now(),
           limit_date: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           ),
           updated_at: Timestamp.now(),
         };
@@ -207,8 +207,8 @@ export class WeddingGuestService {
     if (guest.limit_date) {
       limitTime = guest.limit_date.toMillis();
     } else if (guest.created_at) {
-      // 30 days = 30 * 24 * 60 * 60 * 1000 = 2592000000 ms
-      limitTime = guest.created_at.toMillis() + 2592000000;
+      // 14 days = 14 * 24 * 60 * 60 * 1000 = 1209600000 ms
+      limitTime = guest.created_at.toMillis() + 1209600000;
     }
 
     if (limitTime > 0 && now > limitTime) {

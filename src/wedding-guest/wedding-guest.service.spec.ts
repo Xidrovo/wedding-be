@@ -11,6 +11,7 @@ describe('WeddingGuestService', () => {
   let service: WeddingGuestService;
   let firestoreMock: any;
   let collectionMock: any;
+  let queryMock: any;
   let docMock: any;
 
   beforeEach(async () => {
@@ -20,10 +21,18 @@ describe('WeddingGuestService', () => {
       set: jest.fn(),
     };
 
+    queryMock = {
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn(),
+    };
+
     collectionMock = {
       add: jest.fn(),
       get: jest.fn(),
       doc: jest.fn(() => docMock),
+      where: jest.fn(() => queryMock),
+      limit: jest.fn(() => queryMock),
     };
 
     firestoreMock = {
@@ -53,7 +62,7 @@ describe('WeddingGuestService', () => {
   });
 
   describe('create', () => {
-    it('should create a guest with a limit date 1 month from now', async () => {
+    it('should create a guest with a limit date 2 weeks from now', async () => {
       const createDto = {
         nombre: 'Test Guest',
       };
@@ -70,13 +79,13 @@ describe('WeddingGuestService', () => {
       const addedGuest = collectionMock.add.mock.calls[0][0];
       expect(addedGuest.limit_date).toBeDefined();
 
-      // Check if limit_date is approximately 30 days from now
+      // Check if limit_date is approximately 14 days from now
       const now = Date.now();
       const limitDate = addedGuest.limit_date.toDate().getTime();
       const diff = limitDate - now;
       const days = diff / (1000 * 60 * 60 * 24);
 
-      expect(days).toBeCloseTo(30, 0); // Should be roughly 30 days
+      expect(days).toBeCloseTo(14, 0); // Should be roughly 14 days
     });
   });
 
@@ -95,7 +104,8 @@ describe('WeddingGuestService', () => {
         created_at: Timestamp.now(),
       };
 
-      collectionMock.get.mockResolvedValue({
+      queryMock.get.mockResolvedValue({
+        empty: false,
         docs: [{ id: guestId, data: () => mockGuest }],
       });
 
@@ -118,7 +128,8 @@ describe('WeddingGuestService', () => {
         created_at: Timestamp.now(),
       };
 
-      collectionMock.get.mockResolvedValue({
+      queryMock.get.mockResolvedValue({
+        empty: false,
         docs: [{ id: guestId, data: () => mockGuest }],
       });
 
@@ -131,9 +142,9 @@ describe('WeddingGuestService', () => {
       const token = 'legacy-token';
       const guestId = 'guest-id';
 
-      // created_at 31 days ago (expired)
+      // created_at 15 days ago (expired)
       const oldCreation = Timestamp.fromDate(
-        new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+        new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
       );
 
       const mockGuest = {
@@ -143,7 +154,8 @@ describe('WeddingGuestService', () => {
         // no limit_date
       };
 
-      collectionMock.get.mockResolvedValue({
+      queryMock.get.mockResolvedValue({
+        empty: false,
         docs: [{ id: guestId, data: () => mockGuest }],
       });
 
@@ -156,9 +168,9 @@ describe('WeddingGuestService', () => {
       const token = 'recent-token';
       const guestId = 'guest-id';
 
-      // created_at 1 day ago (valid)
+      // created_at 13 days ago (valid)
       const recentCreation = Timestamp.fromDate(
-        new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        new Date(Date.now() - 13 * 24 * 60 * 60 * 1000),
       );
 
       const mockGuest = {
@@ -168,7 +180,8 @@ describe('WeddingGuestService', () => {
         // no limit_date
       };
 
-      collectionMock.get.mockResolvedValue({
+      queryMock.get.mockResolvedValue({
+        empty: false,
         docs: [{ id: guestId, data: () => mockGuest }],
       });
 
