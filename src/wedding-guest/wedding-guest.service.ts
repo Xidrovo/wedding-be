@@ -16,16 +16,21 @@ import * as crypto from 'crypto';
 @Injectable()
 export class WeddingGuestService {
   private readonly logger = new Logger(WeddingGuestService.name);
-  private collectionName = 'wedding-guests'; // Changed per user request
+  private collectionName = 'wedding-guests';
 
   constructor(@Inject('FIRESTORE') private readonly firestore: Firestore) {}
 
   generateToken(): string {
-    return crypto.randomBytes(32).toString('base64url');
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    // Generate 10 random bytes and map to chars
+    return Array.from(crypto.randomFillSync(new Uint8Array(10)))
+      .map((x) => chars[x % chars.length])
+      .join('');
   }
 
   buildGuestUrl(token: string): string {
-    const baseUrl = process.env.BASE_URL || 'http://localhost:4321'; // Default or from env
+    const baseUrl = process.env.BASE_URL || 'http://localhost:4321';
     return `${baseUrl}/i/${token}`;
   }
 
@@ -33,20 +38,36 @@ export class WeddingGuestService {
     createWeddingGuestDto: CreateWeddingGuestDto,
   ): Promise<WeddingGuest> {
     try {
-      // Auto-generate token and URL if not provided
-      const token = createWeddingGuestDto.token || this.generateToken();
+      let token = createWeddingGuestDto.token;
+
+      // Ensure unique token if generating
+      if (!token) {
+        let isUnique = false;
+        while (!isUnique) {
+            token = this.generateToken();
+            const existing = await this.firestore
+                .collection(this.collectionName)
+                .where('token', '==', token)
+                .get();
+            if (existing.empty) {
+                isUnique = true;
+            }
+        }
+      }
+
       const guestUrl =
         createWeddingGuestDto.guest_url || this.buildGuestUrl(token);
 
       const newItem = {
-        ...createWeddingGuestDto,
+        name: createWeddingGuestDto.name,
+        plus_ones_allowed: createWeddingGuestDto.plus_ones_allowed || 0,
         token,
         guest_url: guestUrl,
-        estado_invitacion:
-          createWeddingGuestDto.estado_invitacion || InvitationStatus.PENDING,
+        status: createWeddingGuestDto.status || InvitationStatus.NOT_OPEN,
         created_at: Timestamp.now(),
+        // 2 weeks from now
         limit_date: Timestamp.fromDate(
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         ),
         updated_at: Timestamp.now(),
       };
@@ -57,7 +78,7 @@ export class WeddingGuestService {
       const doc = await docRef.get();
       const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
 
-      this.logger.log(`New usuario ${guest.nombre} added with id: ${guest.id}`);
+      this.logger.log(`New guest ${guest.name} added with id: ${guest.id}`);
 
       return guest;
     } catch (error) {
@@ -102,52 +123,87 @@ export class WeddingGuestService {
     const batch = this.firestore.batch();
     const collectionRef = this.firestore.collection(this.collectionName);
 
-    // Fetch all existing guests to check for duplicates by Name (normalized)
+    // Fetch all existing guests to check for duplicates by Name and collect existing tokens
     const snapshot = await collectionRef.get();
     const existingGuests = new Map<string, any>();
+    const existingTokens = new Set<string>();
+
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
-      if (data.nombre)
-        existingGuests.set(data.nombre.trim().toLowerCase(), {
+      // Support both new 'name' and legacy 'nombre'
+      const guestName = data.name || data.nombre;
+      if (guestName) {
+        existingGuests.set(guestName.trim().toLowerCase(), {
           id: doc.id,
           ...data,
         });
+      }
+      if (data.token) {
+        existingTokens.add(data.token);
+      }
     });
 
     let operationsCount = 0;
 
     for (const row of rows) {
-      const name = row.nombre?.trim();
+      // Map legacy/csv fields to new fields
+      const name = row.nombre?.trim() || row.name?.trim();
       if (!name) continue;
 
       const normalizedName = name.toLowerCase();
       const existing = existingGuests.get(normalizedName);
 
+      const plusOnes = row.adicionales
+        ? Number(row.adicionales)
+        : (row.plus_ones_allowed ? Number(row.plus_ones_allowed) : 0);
+
       if (existing) {
-        // Update existing (preserve token/url)
+        // Update existing guest: migrate fields and update allowed count
         const docRef = collectionRef.doc(existing.id);
         const updateData: any = {
-          adicionales: row.adicionales
-            ? Number(row.adicionales)
-            : existing.adicionales,
+          plus_ones_allowed: plusOnes,
           updated_at: Timestamp.now(),
+          // Always update name to match CSV (e.g. casing fix) and migrate field
+          name: name,
         };
-        // Update other fields if necessary
+
+        // Migrate status if missing
+        if (!existing.status) {
+            updateData.status = existing.estado_invitacion || InvitationStatus.NOT_OPEN;
+        }
+
+        // Migrate limit_date if missing
+        if (!existing.limit_date) {
+             if (existing.created_at) {
+                 // 2 weeks from creation
+                 updateData.limit_date = Timestamp.fromDate(new Date(existing.created_at.toMillis() + 14 * 24 * 60 * 60 * 1000));
+             } else {
+                 // 2 weeks from now
+                 updateData.limit_date = Timestamp.fromDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
+             }
+        }
+
         batch.update(docRef, updateData);
       } else {
         // Create new
         const docRef = collectionRef.doc();
-        const token = this.generateToken();
+
+        let token = this.generateToken();
+        while (existingTokens.has(token)) {
+            token = this.generateToken();
+        }
+        existingTokens.add(token);
+
         const guestUrl = this.buildGuestUrl(token);
         const newItem = {
-          nombre: name,
-          adicionales: row.adicionales ? Number(row.adicionales) : 0,
+          name: name,
+          plus_ones_allowed: plusOnes,
           token,
           guest_url: guestUrl,
-          estado_invitacion: InvitationStatus.PENDING,
+          status: InvitationStatus.NOT_OPEN,
           created_at: Timestamp.now(),
           limit_date: Timestamp.fromDate(
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           ),
           updated_at: Timestamp.now(),
         };
@@ -180,16 +236,16 @@ export class WeddingGuestService {
   async registerVisit(token: string): Promise<WeddingGuest> {
     const guest = await this.findByToken(token);
     
-    if (!guest.first_visit_at) {
-      await this.firestore
-        .collection(this.collectionName)
-        .doc(guest.id)
-        .update({
-          first_visit_at: Timestamp.now(),
-          updated_at: Timestamp.now(),
-        });
-      guest.first_visit_at = Timestamp.now();
-    }
+    // Always update last_visit_at
+    await this.firestore
+      .collection(this.collectionName)
+      .doc(guest.id)
+      .update({
+        last_visit_at: Timestamp.now(),
+        updated_at: Timestamp.now(),
+      });
+
+    guest.last_visit_at = Timestamp.now();
 
     return guest;
   }
@@ -207,8 +263,8 @@ export class WeddingGuestService {
     if (guest.limit_date) {
       limitTime = guest.limit_date.toMillis();
     } else if (guest.created_at) {
-      // 30 days = 30 * 24 * 60 * 60 * 1000 = 2592000000 ms
-      limitTime = guest.created_at.toMillis() + 2592000000;
+      // Fallback: 2 weeks = 1209600000 ms
+      limitTime = guest.created_at.toMillis() + 1209600000;
     }
 
     if (limitTime > 0 && now > limitTime) {
@@ -216,14 +272,14 @@ export class WeddingGuestService {
     }
 
     const updateData: any = {
-      estado_invitacion: status,
+      status: status,
       updated_at: Timestamp.now(),
     };
 
     if (status === InvitationStatus.ACCEPTED) {
       updateData.accepted_at = Timestamp.now();
       if (plusOnes !== undefined) {
-        updateData.plus_ones_selected = plusOnes;
+        updateData.plus_ones_confirmed = plusOnes;
       }
     }
 

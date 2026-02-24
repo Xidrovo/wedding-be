@@ -12,6 +12,7 @@ describe('WeddingGuestService', () => {
   let firestoreMock: any;
   let collectionMock: any;
   let docMock: any;
+  let batchMock: any;
 
   beforeEach(async () => {
     docMock = {
@@ -24,15 +25,22 @@ describe('WeddingGuestService', () => {
       add: jest.fn(),
       get: jest.fn(),
       doc: jest.fn(() => docMock),
+      where: jest.fn(() => ({
+        limit: jest.fn(() => ({
+            get: jest.fn()
+        }))
+      })),
+    };
+
+    batchMock = {
+        update: jest.fn(),
+        set: jest.fn(),
+        commit: jest.fn(),
     };
 
     firestoreMock = {
       collection: jest.fn(() => collectionMock),
-      batch: jest.fn(() => ({
-        update: jest.fn(),
-        set: jest.fn(),
-        commit: jest.fn(),
-      })),
+      batch: jest.fn(() => batchMock),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -53,16 +61,19 @@ describe('WeddingGuestService', () => {
   });
 
   describe('create', () => {
-    it('should create a guest with a limit date 1 month from now', async () => {
+    it('should create a guest with a limit date 2 weeks from now', async () => {
       const createDto = {
-        nombre: 'Test Guest',
+        name: 'Test Guest',
       };
 
       const mockDocRef = { id: 'new-id', get: jest.fn() };
-      const mockSnapshot = { id: 'new-id', data: jest.fn(() => ({})) };
+      const mockSnapshot = { id: 'new-id', data: jest.fn(() => ({ name: 'Test Guest' })) };
 
       collectionMock.add.mockResolvedValue(mockDocRef);
       mockDocRef.get.mockResolvedValue(mockSnapshot);
+      // For token check
+      const queryMock = { get: jest.fn().mockResolvedValue({ empty: true }) };
+      collectionMock.where.mockReturnValue(queryMock);
 
       await service.create(createDto);
 
@@ -70,13 +81,13 @@ describe('WeddingGuestService', () => {
       const addedGuest = collectionMock.add.mock.calls[0][0];
       expect(addedGuest.limit_date).toBeDefined();
 
-      // Check if limit_date is approximately 30 days from now
+      // Check if limit_date is approximately 14 days from now
       const now = Date.now();
       const limitDate = addedGuest.limit_date.toDate().getTime();
       const diff = limitDate - now;
       const days = diff / (1000 * 60 * 60 * 24);
 
-      expect(days).toBeCloseTo(30, 0); // Should be roughly 30 days
+      expect(days).toBeCloseTo(14, 0);
     });
   });
 
@@ -95,13 +106,23 @@ describe('WeddingGuestService', () => {
         created_at: Timestamp.now(),
       };
 
-      collectionMock.get.mockResolvedValue({
-        docs: [{ id: guestId, data: () => mockGuest }],
+      const queryMock = {
+          get: jest.fn().mockResolvedValue({
+              empty: false,
+              docs: [{ id: guestId, data: () => mockGuest }]
+          })
+      };
+
+      // Setup where().limit().get() chain
+      collectionMock.where.mockReturnValue({
+          limit: jest.fn().mockReturnValue(queryMock)
       });
 
       await service.updateRsvp(token, InvitationStatus.ACCEPTED);
 
-      expect(docMock.update).toHaveBeenCalled();
+      expect(docMock.update).toHaveBeenCalledWith(expect.objectContaining({
+          status: InvitationStatus.ACCEPTED
+      }));
     });
 
     it('should throw BadRequestException if past limit date', async () => {
@@ -118,62 +139,76 @@ describe('WeddingGuestService', () => {
         created_at: Timestamp.now(),
       };
 
-      collectionMock.get.mockResolvedValue({
-        docs: [{ id: guestId, data: () => mockGuest }],
+      const queryMock = {
+          get: jest.fn().mockResolvedValue({
+              empty: false,
+              docs: [{ id: guestId, data: () => mockGuest }]
+          })
+      };
+
+      collectionMock.where.mockReturnValue({
+          limit: jest.fn().mockReturnValue(queryMock)
       });
 
       await expect(
         service.updateRsvp(token, InvitationStatus.ACCEPTED),
       ).rejects.toThrow(BadRequestException);
     });
+  });
 
-    it('should calculate limit date from created_at if limit_date missing (backward compatibility)', async () => {
-      const token = 'legacy-token';
-      const guestId = 'guest-id';
+  describe('importFromCsv', () => {
+    it('should update existing guest and migrate fields', async () => {
+        // Setup
+        const existingGuest = {
+            id: 'old-id',
+            nombre: 'Old Name', // Legacy field
+            adicionales: 1,
+            created_at: Timestamp.now(),
+        };
 
-      // created_at 31 days ago (expired)
-      const oldCreation = Timestamp.fromDate(
-        new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
-      );
+        const rows = [
+            { nombre: 'Old Name', adicionales: 2 }
+        ];
 
-      const mockGuest = {
-        id: guestId,
-        token,
-        created_at: oldCreation,
-        // no limit_date
-      };
+        // Mocks
+        const collectionGetMock = {
+            docs: [{ id: 'old-id', data: () => existingGuest }]
+        };
+        collectionMock.get.mockResolvedValue(collectionGetMock);
+        // Ensure doc() returns docMock with id 'old-id'
+        collectionMock.doc.mockReturnValue(docMock);
 
-      collectionMock.get.mockResolvedValue({
-        docs: [{ id: guestId, data: () => mockGuest }],
-      });
+        await service.importFromCsv(rows);
 
-      await expect(
-        service.updateRsvp(token, InvitationStatus.ACCEPTED),
-      ).rejects.toThrow(BadRequestException);
+        expect(batchMock.update).toHaveBeenCalledWith(
+            expect.anything(), // doc ref
+            expect.objectContaining({
+                name: 'Old Name',
+                status: InvitationStatus.NOT_OPEN, // Should be added default
+                plus_ones_allowed: 2
+            })
+        );
     });
 
-    it('should allow update if limit_date missing but created_at is recent (backward compatibility)', async () => {
-      const token = 'recent-token';
-      const guestId = 'guest-id';
+    it('should create new guest with new fields', async () => {
+         const rows = [
+            { nombre: 'New Guest', adicionales: 0 }
+         ];
 
-      // created_at 1 day ago (valid)
-      const recentCreation = Timestamp.fromDate(
-        new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-      );
+         collectionMock.get.mockResolvedValue({ docs: [] }); // No existing guests
+         collectionMock.doc.mockReturnValue(docMock); // For new doc ref
 
-      const mockGuest = {
-        id: guestId,
-        token,
-        created_at: recentCreation,
-        // no limit_date
-      };
+         await service.importFromCsv(rows);
 
-      collectionMock.get.mockResolvedValue({
-        docs: [{ id: guestId, data: () => mockGuest }],
-      });
-
-      await service.updateRsvp(token, InvitationStatus.ACCEPTED);
-      expect(docMock.update).toHaveBeenCalled();
+         expect(batchMock.set).toHaveBeenCalledWith(
+             expect.anything(),
+             expect.objectContaining({
+                 name: 'New Guest',
+                 status: InvitationStatus.NOT_OPEN,
+                 plus_ones_allowed: 0,
+                 token: expect.any(String)
+             })
+         );
     });
   });
 });

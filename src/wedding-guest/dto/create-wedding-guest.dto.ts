@@ -10,15 +10,15 @@ import { InvitationStatus } from '../entities/wedding-guest.entity';
 export class CreateWeddingGuestDto {
   @IsString()
   @IsNotEmpty()
-  nombre: string;
+  name: string;
 
   @IsNumber()
   @IsOptional()
-  adicionales?: number;
+  plus_ones_allowed?: number;
 
   @IsEnum(InvitationStatus)
   @IsOptional()
-  estado_invitacion?: InvitationStatus;
+  status?: InvitationStatus;
 
   @IsString()
   @IsOptional()
@@ -30,10 +30,5 @@ export class CreateWeddingGuestDto {
 
   @IsNumber()
   @IsOptional()
-  posible_invitado?: number;
-
-  // Backwards compatibility or specific override
-  @IsString()
-  @IsOptional()
-  estado_aceptacion?: string;
+  plus_ones_confirmed?: number;
 }
