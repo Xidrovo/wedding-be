@@ -11,6 +11,7 @@ describe('WeddingGuestService', () => {
   let service: WeddingGuestService;
   let firestoreMock: any;
   let collectionMock: any;
+  let queryMock: any;
   let docMock: any;
   let batchMock: any;
 
@@ -19,6 +20,12 @@ describe('WeddingGuestService', () => {
       get: jest.fn(),
       update: jest.fn(),
       set: jest.fn(),
+    };
+
+    queryMock = {
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn(),
     };
 
     collectionMock = {
