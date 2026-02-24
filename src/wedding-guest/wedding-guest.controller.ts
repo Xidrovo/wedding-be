@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { WeddingGuestService } from './wedding-guest.service';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
@@ -46,15 +47,25 @@ export class WeddingGuestController {
     @Body()
     body: {
       token: string;
-      estado_invitacion: InvitationStatus;
+      status?: InvitationStatus;
+      estado_invitacion?: InvitationStatus;
+      plus_ones_confirmed?: number;
       plus_ones_selected?: number;
     },
   ) {
     if (!body.token) throw new UnauthorizedException('Token required');
+
+    const status = body.status || body.estado_invitacion;
+    if (!status) {
+        throw new BadRequestException('Status (status or estado_invitacion) is required');
+    }
+
+    const confirmed = body.plus_ones_confirmed ?? body.plus_ones_selected;
+
     return this.weddingGuestService.updateRsvp(
       body.token,
-      body.estado_invitacion,
-      body.plus_ones_selected,
+      status,
+      confirmed,
     );
   }
 
