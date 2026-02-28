@@ -19,7 +19,24 @@ export class WeddingGuestService {
   private readonly logger = new Logger(WeddingGuestService.name);
   private collectionName = 'wedding-guests';
 
+  private allGuestsCache: { data: WeddingGuest[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
+  private guestCache = new Map<string, { data: WeddingGuest; expiresAt: number }>();
+  private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+
   constructor(@Inject('FIRESTORE') private readonly firestore: Firestore) {}
+
+  private clearCache(guestId?: string, token?: string) {
+    this.allGuestsCache = { data: null, expiresAt: 0 };
+    if (guestId) {
+      this.guestCache.delete(guestId);
+    }
+    if (token) {
+      this.guestCache.delete(token);
+    }
+    if (!guestId && !token) {
+      this.guestCache.clear();
+    }
+  }
 
   generateToken(): string {
     const chars =
@@ -57,7 +74,7 @@ export class WeddingGuestService {
       }
 
       const guestUrl =
-        createWeddingGuestDto.guest_url || this.buildGuestUrl(token);
+        createWeddingGuestDto.guest_url || this.buildGuestUrl(token as string);
 
       const newItem = {
         name: createWeddingGuestDto.name,
@@ -81,6 +98,8 @@ export class WeddingGuestService {
 
       this.logger.log(`New guest ${guest.name} added with id: ${guest.id}`);
 
+      this.clearCache(guest.id, guest.token);
+
       return guest;
     } catch (error) {
       this.logger.error('Error creating document:', error);
@@ -89,13 +108,38 @@ export class WeddingGuestService {
   }
 
   async findAll(): Promise<WeddingGuest[]> {
+    const now = Date.now();
+    if (this.allGuestsCache.data && this.allGuestsCache.expiresAt > now) {
+      return this.allGuestsCache.data;
+    }
+
     const snapshot = await this.firestore.collection(this.collectionName).get();
-    return snapshot.docs.map(
+    const guests = snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as WeddingGuest,
     );
+
+    this.allGuestsCache = {
+      data: guests,
+      expiresAt: now + this.CACHE_TTL,
+    };
+
+    guests.forEach((guest) => {
+      this.guestCache.set(guest.id, { data: guest, expiresAt: now + this.CACHE_TTL });
+      if (guest.token) {
+        this.guestCache.set(guest.token, { data: guest, expiresAt: now + this.CACHE_TTL });
+      }
+    });
+
+    return guests;
   }
 
   async findOne(id: string): Promise<WeddingGuest> {
+    const now = Date.now();
+    const cached = this.guestCache.get(id);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
     const doc = await this.firestore
       .collection(this.collectionName)
       .doc(id)
@@ -103,7 +147,14 @@ export class WeddingGuestService {
     if (!doc.exists) {
       throw new NotFoundException(`Wedding guest with ID ${id} not found`);
     }
-    return { id: doc.id, ...doc.data() } as WeddingGuest;
+    const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
+
+    this.guestCache.set(id, { data: guest, expiresAt: now + this.CACHE_TTL });
+    if (guest.token) {
+      this.guestCache.set(guest.token, { data: guest, expiresAt: now + this.CACHE_TTL });
+    }
+
+    return guest;
   }
 
   async update(id: string, updateWeddingGuestDto: UpdateWeddingGuestDto): Promise<WeddingGuest> {
@@ -119,11 +170,14 @@ export class WeddingGuestService {
       .doc(id)
       .update(updateData);
 
-    return { ...guest, ...updateData };
+    const updatedGuest = { ...guest, ...updateData };
+    this.clearCache(updatedGuest.id, updatedGuest.token);
+
+    return updatedGuest;
   }
 
   async rotateUrl(id: string): Promise<{ guest_url: string }> {
-    await this.findOne(id);
+    const guest = await this.findOne(id);
     const newToken = this.generateToken();
     const newUrl = this.buildGuestUrl(newToken);
 
@@ -132,6 +186,8 @@ export class WeddingGuestService {
       guest_url: newUrl,
       updated_at: Timestamp.now(),
     });
+
+    this.clearCache(guest.id, guest.token);
 
     return { guest_url: newUrl };
   }
@@ -232,10 +288,17 @@ export class WeddingGuestService {
 
     if (operationsCount > 0) {
       await batch.commit();
+      this.clearCache();
     }
   }
 
   async findByToken(token: string): Promise<WeddingGuest> {
+    const now = Date.now();
+    const cached = this.guestCache.get(token);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
     const snapshot = await this.firestore
       .collection(this.collectionName)
       .where('token', '==', token)
@@ -247,7 +310,12 @@ export class WeddingGuestService {
     }
 
     const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as WeddingGuest;
+    const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
+
+    this.guestCache.set(token, { data: guest, expiresAt: now + this.CACHE_TTL });
+    this.guestCache.set(guest.id, { data: guest, expiresAt: now + this.CACHE_TTL });
+
+    return guest;
   }
 
   async registerVisit(token: string): Promise<WeddingGuest> {
@@ -263,6 +331,8 @@ export class WeddingGuestService {
       });
 
     guest.last_visit_at = Timestamp.now();
+
+    this.clearCache(guest.id, guest.token);
 
     return guest;
   }
@@ -305,6 +375,9 @@ export class WeddingGuestService {
       .doc(guest.id)
       .update(updateData);
 
-    return { ...guest, ...updateData };
+    const updatedGuest = { ...guest, ...updateData };
+    this.clearCache(updatedGuest.id, updatedGuest.token);
+
+    return updatedGuest;
   }
 }
