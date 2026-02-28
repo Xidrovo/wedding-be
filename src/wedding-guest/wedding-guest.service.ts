@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
+import { UpdateWeddingGuestDto } from './dto/update-wedding-guest.dto';
 import {
   InvitationStatus,
   WeddingGuest,
@@ -103,6 +104,22 @@ export class WeddingGuestService {
       throw new NotFoundException(`Wedding guest with ID ${id} not found`);
     }
     return { id: doc.id, ...doc.data() } as WeddingGuest;
+  }
+
+  async update(id: string, updateWeddingGuestDto: UpdateWeddingGuestDto): Promise<WeddingGuest> {
+    const guest = await this.findOne(id);
+
+    const updateData = {
+      ...updateWeddingGuestDto,
+      updated_at: Timestamp.now(),
+    };
+
+    await this.firestore
+      .collection(this.collectionName)
+      .doc(id)
+      .update(updateData);
+
+    return { ...guest, ...updateData };
   }
 
   async rotateUrl(id: string): Promise<{ guest_url: string }> {

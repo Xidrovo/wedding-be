@@ -18,6 +18,7 @@ describe('WeddingGuestController', () => {
             create: jest.fn().mockResolvedValue({ id: 'test-id' }),
             findAll: jest.fn().mockResolvedValue([]),
             findOne: jest.fn().mockResolvedValue(null),
+            update: jest.fn().mockResolvedValue({ id: 'test-id', name: 'Updated Name' }),
             registerVisit: jest.fn(),
             updateRsvp: jest.fn(),
           },
@@ -31,6 +32,20 @@ describe('WeddingGuestController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('update', () => {
+    it('should update a guest via PATCH endpoint', async () => {
+      const guestId = 'some-id';
+      const updateDto = {
+        name: 'Updated Name',
+        plus_ones_allowed: 1,
+      };
+
+      await controller.update(guestId, updateDto);
+
+      expect(service.update).toHaveBeenCalledWith(guestId, updateDto);
+    });
   });
 
   describe('create', () => {
