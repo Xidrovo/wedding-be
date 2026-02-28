@@ -7,7 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   if (process.env.NODE_ENV === 'production') {
     app.enableCors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || [],
+      origin: process.env.ALLOWED_ORIGINS?.split(',') || ['https://xavieryjuliana.com', 'https://www.xavieryjuliana.com'],
       credentials: true,
     });
   } else {
