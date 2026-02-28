@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { WeddingGuestService } from './wedding-guest.service';
 import { CreateWeddingGuestDto } from './dto/create-wedding-guest.dto';
+import { UpdateWeddingGuestDto } from './dto/update-wedding-guest.dto';
 import { AdminAuthGuard } from '../auth/admin.guard';
 import { InvitationStatus } from './entities/wedding-guest.entity';
 
@@ -77,5 +79,10 @@ export class WeddingGuestController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.weddingGuestService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateWeddingGuestDto: UpdateWeddingGuestDto) {
+    return this.weddingGuestService.update(id, updateWeddingGuestDto);
   }
 }

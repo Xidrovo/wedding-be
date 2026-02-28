@@ -67,6 +67,54 @@ describe('WeddingGuestService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('update', () => {
+    it('should update and return the updated guest', async () => {
+      const guestId = 'guest-id';
+      const updateDto = { name: 'Updated Name', plus_ones_allowed: 5 };
+      const existingGuest = {
+        id: guestId,
+        name: 'Old Name',
+        plus_ones_allowed: 2,
+        status: InvitationStatus.NOT_OPEN,
+      };
+
+      // Mock findOne to return existingGuest
+      docMock.get.mockResolvedValue({
+        exists: true,
+        id: guestId,
+        data: () => existingGuest,
+      });
+
+      collectionMock.doc.mockReturnValue(docMock);
+      docMock.update.mockResolvedValue(undefined);
+
+      const result = await service.update(guestId, updateDto);
+
+      expect(docMock.update).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Updated Name',
+        plus_ones_allowed: 5,
+        updated_at: expect.any(Timestamp),
+      }));
+
+      expect(result.name).toEqual('Updated Name');
+      expect(result.plus_ones_allowed).toEqual(5);
+      expect(result.id).toEqual(guestId);
+    });
+
+    it('should throw NotFoundException if guest not found', async () => {
+      const guestId = 'non-existent-id';
+      const updateDto = { name: 'Updated Name' };
+
+      docMock.get.mockResolvedValue({
+        exists: false,
+      });
+      collectionMock.doc.mockReturnValue(docMock);
+
+      await expect(service.update(guestId, updateDto)).rejects.toThrow(NotFoundException);
+      expect(docMock.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create', () => {
     it('should create a guest with a limit date 2 weeks from now', async () => {
       const createDto = {
