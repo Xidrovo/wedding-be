@@ -18,7 +18,9 @@ describe('WeddingGuestController', () => {
             create: jest.fn().mockResolvedValue({ id: 'test-id' }),
             findAll: jest.fn().mockResolvedValue([]),
             findOne: jest.fn().mockResolvedValue(null),
-            update: jest.fn().mockResolvedValue({ id: 'test-id', name: 'Updated Name' }),
+            update: jest
+              .fn()
+              .mockResolvedValue({ id: 'test-id', name: 'Updated Name' }),
             registerVisit: jest.fn(),
             updateRsvp: jest.fn(),
           },

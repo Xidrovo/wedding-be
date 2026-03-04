@@ -1,0 +1,5 @@
+[[rules]]
+  path = "/.netlify/functions/*"
+  windowLimit = 15
+  windowSize = 60
+  aggregateBy = "ip"

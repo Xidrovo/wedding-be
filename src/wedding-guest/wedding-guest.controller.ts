@@ -59,16 +59,14 @@ export class WeddingGuestController {
 
     const status = body.status || body.estado_invitacion;
     if (!status) {
-        throw new BadRequestException('Status (status or estado_invitacion) is required');
+      throw new BadRequestException(
+        'Status (status or estado_invitacion) is required',
+      );
     }
 
     const confirmed = body.plus_ones_confirmed ?? body.plus_ones_selected;
 
-    return this.weddingGuestService.updateRsvp(
-      body.token,
-      status,
-      confirmed,
-    );
+    return this.weddingGuestService.updateRsvp(body.token, status, confirmed);
   }
 
   @Get()
@@ -82,7 +80,10 @@ export class WeddingGuestController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateWeddingGuestDto: UpdateWeddingGuestDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateWeddingGuestDto: UpdateWeddingGuestDto,
+  ) {
     return this.weddingGuestService.update(id, updateWeddingGuestDto);
   }
 }

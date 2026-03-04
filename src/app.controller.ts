@@ -7,6 +7,16 @@ export class AppController {
 
   @Get()
   getHello(): string {
-    return this.appService.getHello();
+    return 'JyX Wedding API is running!';
   }
+
+  @Get('health')
+  getHealth() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'jyx-wedding-be',
+    };
+  }
+
 }

@@ -34,15 +34,15 @@ describe('WeddingGuestService', () => {
       doc: jest.fn(() => docMock),
       where: jest.fn(() => ({
         limit: jest.fn(() => ({
-            get: jest.fn()
-        }))
+          get: jest.fn(),
+        })),
       })),
     };
 
     batchMock = {
-        update: jest.fn(),
-        set: jest.fn(),
-        commit: jest.fn(),
+      update: jest.fn(),
+      set: jest.fn(),
+      commit: jest.fn(),
     };
 
     firestoreMock = {
@@ -90,11 +90,13 @@ describe('WeddingGuestService', () => {
 
       const result = await service.update(guestId, updateDto);
 
-      expect(docMock.update).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Updated Name',
-        plus_ones_allowed: 5,
-        updated_at: expect.any(Timestamp),
-      }));
+      expect(docMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Updated Name',
+          plus_ones_allowed: 5,
+          updated_at: expect.any(Timestamp),
+        }),
+      );
 
       expect(result.name).toEqual('Updated Name');
       expect(result.plus_ones_allowed).toEqual(5);
@@ -110,7 +112,9 @@ describe('WeddingGuestService', () => {
       });
       collectionMock.doc.mockReturnValue(docMock);
 
-      await expect(service.update(guestId, updateDto)).rejects.toThrow(NotFoundException);
+      await expect(service.update(guestId, updateDto)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(docMock.update).not.toHaveBeenCalled();
     });
   });
@@ -122,7 +126,10 @@ describe('WeddingGuestService', () => {
       };
 
       const mockDocRef = { id: 'new-id', get: jest.fn() };
-      const mockSnapshot = { id: 'new-id', data: jest.fn(() => ({ name: 'Test Guest' })) };
+      const mockSnapshot = {
+        id: 'new-id',
+        data: jest.fn(() => ({ name: 'Test Guest' })),
+      };
 
       collectionMock.add.mockResolvedValue(mockDocRef);
       mockDocRef.get.mockResolvedValue(mockSnapshot);
@@ -162,22 +169,24 @@ describe('WeddingGuestService', () => {
       };
 
       const queryMock = {
-          get: jest.fn().mockResolvedValue({
-              empty: false,
-              docs: [{ id: guestId, data: () => mockGuest }]
-          })
+        get: jest.fn().mockResolvedValue({
+          empty: false,
+          docs: [{ id: guestId, data: () => mockGuest }],
+        }),
       };
 
       // Setup where().limit().get() chain
       collectionMock.where.mockReturnValue({
-          limit: jest.fn().mockReturnValue(queryMock)
+        limit: jest.fn().mockReturnValue(queryMock),
       });
 
       await service.updateRsvp(token, InvitationStatus.ACCEPTED);
 
-      expect(docMock.update).toHaveBeenCalledWith(expect.objectContaining({
-          status: InvitationStatus.ACCEPTED
-      }));
+      expect(docMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: InvitationStatus.ACCEPTED,
+        }),
+      );
     });
 
     it('should throw BadRequestException if past limit date', async () => {
@@ -195,14 +204,14 @@ describe('WeddingGuestService', () => {
       };
 
       const queryMock = {
-          get: jest.fn().mockResolvedValue({
-              empty: false,
-              docs: [{ id: guestId, data: () => mockGuest }]
-          })
+        get: jest.fn().mockResolvedValue({
+          empty: false,
+          docs: [{ id: guestId, data: () => mockGuest }],
+        }),
       };
 
       collectionMock.where.mockReturnValue({
-          limit: jest.fn().mockReturnValue(queryMock)
+        limit: jest.fn().mockReturnValue(queryMock),
       });
 
       await expect(
@@ -213,57 +222,53 @@ describe('WeddingGuestService', () => {
 
   describe('importFromCsv', () => {
     it('should update existing guest and migrate fields', async () => {
-        // Setup
-        const existingGuest = {
-            id: 'old-id',
-            nombre: 'Old Name', // Legacy field
-            adicionales: 1,
-            created_at: Timestamp.now(),
-        };
+      // Setup
+      const existingGuest = {
+        id: 'old-id',
+        nombre: 'Old Name', // Legacy field
+        adicionales: 1,
+        created_at: Timestamp.now(),
+      };
 
-        const rows = [
-            { nombre: 'Old Name', adicionales: 2 }
-        ];
+      const rows = [{ nombre: 'Old Name', adicionales: 2 }];
 
-        // Mocks
-        const collectionGetMock = {
-            docs: [{ id: 'old-id', data: () => existingGuest }]
-        };
-        collectionMock.get.mockResolvedValue(collectionGetMock);
-        // Ensure doc() returns docMock with id 'old-id'
-        collectionMock.doc.mockReturnValue(docMock);
+      // Mocks
+      const collectionGetMock = {
+        docs: [{ id: 'old-id', data: () => existingGuest }],
+      };
+      collectionMock.get.mockResolvedValue(collectionGetMock);
+      // Ensure doc() returns docMock with id 'old-id'
+      collectionMock.doc.mockReturnValue(docMock);
 
-        await service.importFromCsv(rows);
+      await service.importFromCsv(rows);
 
-        expect(batchMock.update).toHaveBeenCalledWith(
-            expect.anything(), // doc ref
-            expect.objectContaining({
-                name: 'Old Name',
-                status: InvitationStatus.NOT_OPEN, // Should be added default
-                plus_ones_allowed: 2
-            })
-        );
+      expect(batchMock.update).toHaveBeenCalledWith(
+        expect.anything(), // doc ref
+        expect.objectContaining({
+          name: 'Old Name',
+          status: InvitationStatus.NOT_OPEN, // Should be added default
+          plus_ones_allowed: 2,
+        }),
+      );
     });
 
     it('should create new guest with new fields', async () => {
-         const rows = [
-            { nombre: 'New Guest', adicionales: 0 }
-         ];
+      const rows = [{ nombre: 'New Guest', adicionales: 0 }];
 
-         collectionMock.get.mockResolvedValue({ docs: [] }); // No existing guests
-         collectionMock.doc.mockReturnValue(docMock); // For new doc ref
+      collectionMock.get.mockResolvedValue({ docs: [] }); // No existing guests
+      collectionMock.doc.mockReturnValue(docMock); // For new doc ref
 
-         await service.importFromCsv(rows);
+      await service.importFromCsv(rows);
 
-         expect(batchMock.set).toHaveBeenCalledWith(
-             expect.anything(),
-             expect.objectContaining({
-                 name: 'New Guest',
-                 status: InvitationStatus.NOT_OPEN,
-                 plus_ones_allowed: 0,
-                 token: expect.any(String)
-             })
-         );
+      expect(batchMock.set).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          name: 'New Guest',
+          status: InvitationStatus.NOT_OPEN,
+          plus_ones_allowed: 0,
+          token: expect.any(String),
+        }),
+      );
     });
   });
 });

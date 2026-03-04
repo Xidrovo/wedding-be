@@ -1,4 +1,17 @@
 {
+  "functions": {
+    "source": ".",
+    "runtime": "nodejs20",
+    "ignore": [
+      "src",
+      "node_modules",
+      "test",
+      "scripts",
+      ".gitignore",
+      "*.ts",
+      "service-account.json"
+    ]
+  },
   "firestore": {
     "rules": "firestore.rules"
   },

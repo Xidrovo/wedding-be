@@ -19,8 +19,14 @@ export class WeddingGuestService {
   private readonly logger = new Logger(WeddingGuestService.name);
   private collectionName = 'wedding-guests';
 
-  private allGuestsCache: { data: WeddingGuest[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
-  private guestCache = new Map<string, { data: WeddingGuest; expiresAt: number }>();
+  private allGuestsCache: { data: WeddingGuest[] | null; expiresAt: number } = {
+    data: null,
+    expiresAt: 0,
+  };
+  private guestCache = new Map<
+    string,
+    { data: WeddingGuest; expiresAt: number }
+  >();
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
 
   constructor(@Inject('FIRESTORE') private readonly firestore: Firestore) {}
@@ -62,14 +68,14 @@ export class WeddingGuestService {
       if (!token) {
         let isUnique = false;
         while (!isUnique) {
-            token = this.generateToken();
-            const existing = await this.firestore
-                .collection(this.collectionName)
-                .where('token', '==', token)
-                .get();
-            if (existing.empty) {
-                isUnique = true;
-            }
+          token = this.generateToken();
+          const existing = await this.firestore
+            .collection(this.collectionName)
+            .where('token', '==', token)
+            .get();
+          if (existing.empty) {
+            isUnique = true;
+          }
         }
       }
 
@@ -124,9 +130,15 @@ export class WeddingGuestService {
     };
 
     guests.forEach((guest) => {
-      this.guestCache.set(guest.id, { data: guest, expiresAt: now + this.CACHE_TTL });
+      this.guestCache.set(guest.id, {
+        data: guest,
+        expiresAt: now + this.CACHE_TTL,
+      });
       if (guest.token) {
-        this.guestCache.set(guest.token, { data: guest, expiresAt: now + this.CACHE_TTL });
+        this.guestCache.set(guest.token, {
+          data: guest,
+          expiresAt: now + this.CACHE_TTL,
+        });
       }
     });
 
@@ -151,13 +163,19 @@ export class WeddingGuestService {
 
     this.guestCache.set(id, { data: guest, expiresAt: now + this.CACHE_TTL });
     if (guest.token) {
-      this.guestCache.set(guest.token, { data: guest, expiresAt: now + this.CACHE_TTL });
+      this.guestCache.set(guest.token, {
+        data: guest,
+        expiresAt: now + this.CACHE_TTL,
+      });
     }
 
     return guest;
   }
 
-  async update(id: string, updateWeddingGuestDto: UpdateWeddingGuestDto): Promise<WeddingGuest> {
+  async update(
+    id: string,
+    updateWeddingGuestDto: UpdateWeddingGuestDto,
+  ): Promise<WeddingGuest> {
     const guest = await this.findOne(id);
 
     const updateData = {
@@ -228,7 +246,9 @@ export class WeddingGuestService {
 
       const plusOnes = row.adicionales
         ? Number(row.adicionales)
-        : (row.plus_ones_allowed ? Number(row.plus_ones_allowed) : 0);
+        : row.plus_ones_allowed
+          ? Number(row.plus_ones_allowed)
+          : 0;
 
       if (existing) {
         // Update existing guest: migrate fields and update allowed count
@@ -242,18 +262,25 @@ export class WeddingGuestService {
 
         // Migrate status if missing
         if (!existing.status) {
-            updateData.status = existing.estado_invitacion || InvitationStatus.NOT_OPEN;
+          updateData.status =
+            existing.estado_invitacion || InvitationStatus.NOT_OPEN;
         }
 
         // Migrate limit_date if missing
         if (!existing.limit_date) {
-             if (existing.created_at) {
-                 // 2 weeks from creation
-                 updateData.limit_date = Timestamp.fromDate(new Date(existing.created_at.toMillis() + 14 * 24 * 60 * 60 * 1000));
-             } else {
-                 // 2 weeks from now
-                 updateData.limit_date = Timestamp.fromDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
-             }
+          if (existing.created_at) {
+            // 2 weeks from creation
+            updateData.limit_date = Timestamp.fromDate(
+              new Date(
+                existing.created_at.toMillis() + 14 * 24 * 60 * 60 * 1000,
+              ),
+            );
+          } else {
+            // 2 weeks from now
+            updateData.limit_date = Timestamp.fromDate(
+              new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            );
+          }
         }
 
         batch.update(docRef, updateData);
@@ -263,7 +290,7 @@ export class WeddingGuestService {
 
         let token = this.generateToken();
         while (existingTokens.has(token)) {
-            token = this.generateToken();
+          token = this.generateToken();
         }
         existingTokens.add(token);
 
@@ -312,23 +339,26 @@ export class WeddingGuestService {
     const doc = snapshot.docs[0];
     const guest = { id: doc.id, ...doc.data() } as WeddingGuest;
 
-    this.guestCache.set(token, { data: guest, expiresAt: now + this.CACHE_TTL });
-    this.guestCache.set(guest.id, { data: guest, expiresAt: now + this.CACHE_TTL });
+    this.guestCache.set(token, {
+      data: guest,
+      expiresAt: now + this.CACHE_TTL,
+    });
+    this.guestCache.set(guest.id, {
+      data: guest,
+      expiresAt: now + this.CACHE_TTL,
+    });
 
     return guest;
   }
 
   async registerVisit(token: string): Promise<WeddingGuest> {
     const guest = await this.findByToken(token);
-    
+
     // Always update last_visit_at
-    await this.firestore
-      .collection(this.collectionName)
-      .doc(guest.id)
-      .update({
-        last_visit_at: Timestamp.now(),
-        updated_at: Timestamp.now(),
-      });
+    await this.firestore.collection(this.collectionName).doc(guest.id).update({
+      last_visit_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
+    });
 
     guest.last_visit_at = Timestamp.now();
 

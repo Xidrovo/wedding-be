@@ -1,9 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow all reads and writes in emulator mode
+    // Secure by default: Deny all direct public access
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
+    
+    // Note: The Admin SDK (used in your Node.js backend) 
+    // bypasses these rules automatically.
   }
 }

@@ -13,51 +13,29 @@ import firebaseConfig from '../config/firebase.config';
         const logger = new Logger('FirebaseModule');
         try {
           if (config.useEmulator) {
-            process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-
+            process.env.FIRESTORE_EMULATOR_HOST = config.emulatorHost || '127.0.0.1:8080';
             const EMULATOR_PROJECT_ID = 'demo-wedding-project';
-
-            Logger.log(
-              `Firestore Emulator connected to project: ${EMULATOR_PROJECT_ID}`,
-            );
-
-            const app = admin.initializeApp(
-              {
-                projectId: EMULATOR_PROJECT_ID,
-              },
+            
+            return admin.initializeApp(
+              { projectId: EMULATOR_PROJECT_ID },
               'EMULATOR_APP',
             );
-
-            return app;
           }
 
-          const serviceAccountPath = require('path').resolve(
-            './service-account.json',
-          );
-          const fs = require('fs');
-
-          if (fs.existsSync(serviceAccountPath)) {
-            logger.log('✅ Loading credentials from service-account.json');
-            const serviceAccount = require(serviceAccountPath);
+          if (config.projectId && config.privateKey && config.clientEmail) {
+            logger.log('✅ Firebase initialized with .env credentials');
             return admin.initializeApp({
-              credential: admin.credential.cert(serviceAccount),
+              credential: admin.credential.cert({
+                projectId: config.projectId,
+                privateKey: config.privateKey,
+                clientEmail: config.clientEmail,
+              }),
             });
           }
 
-          logger.warn(
-            '⚠️ service-account.json not found, falling back to .env',
-          );
-
-          // Fallback to .env
-          const firebaseParams = {
-            credential: admin.credential.cert({
-              projectId: config.projectId,
-              privateKey: config.privateKey,
-              clientEmail: config.clientEmail,
-            }),
-          };
-          return admin.initializeApp(firebaseParams);
-        } catch (error) {
+          logger.log('✅ Firebase initialized with Default App Credentials');
+          return admin.initializeApp();
+        } catch (error: any) {
           logger.error('❌ Firebase Init Error:', error.message);
           throw error;
         }

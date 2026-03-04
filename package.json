@@ -1,12 +1,17 @@
 {
-  "name": "BE",
+  "name": "jyx-wedding-be",
   "version": "0.0.1",
   "description": "",
+  "main": "dist/index.js",
+  "engines": {
+    "node": "20"
+  },
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "deploy": "npm run build && firebase deploy --only functions",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "cross-env NODE_ENV=development FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 nest start --watch",
     "start:dev": "cross-env NODE_ENV=development FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 nest start --watch",
@@ -27,9 +32,12 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/throttler": "^6.5.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.0.6",
+    "google-auth-library": "^10.6.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
