@@ -16,6 +16,7 @@ describe('WeddingGuestController', () => {
           provide: WeddingGuestService,
           useValue: {
             create: jest.fn().mockResolvedValue({ id: 'test-id' }),
+            createBatch: jest.fn().mockResolvedValue([{ id: 'test-id' }]),
             findAll: jest.fn().mockResolvedValue([]),
             findOne: jest.fn().mockResolvedValue(null),
             update: jest
@@ -61,6 +62,30 @@ describe('WeddingGuestController', () => {
       await controller.create(guestData);
 
       expect(service.create).toHaveBeenCalledWith(guestData);
+    });
+  });
+
+  describe('createBatch', () => {
+    it('should create a batch of guests with array payload', async () => {
+      const guestsData: CreateWeddingGuestDto[] = [
+        { name: 'Guest 1' },
+        { name: 'Guest 2' }
+      ];
+
+      await controller.createBatch(guestsData);
+
+      expect(service.createBatch).toHaveBeenCalledWith(guestsData);
+    });
+
+    it('should create a batch of guests with object payload containing guests array', async () => {
+      const guestsData: CreateWeddingGuestDto[] = [
+        { name: 'Guest 1' },
+        { name: 'Guest 2' }
+      ];
+
+      await controller.createBatch({ guests: guestsData });
+
+      expect(service.createBatch).toHaveBeenCalledWith(guestsData);
     });
   });
 });

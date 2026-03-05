@@ -31,6 +31,17 @@ export class WeddingGuestController {
     return this.weddingGuestService.findAll();
   }
 
+  @Post('admin/invites/batch')
+  @UseGuards(AdminAuthGuard)
+  createBatch(@Body() body: { guests: CreateWeddingGuestDto[] } | CreateWeddingGuestDto[]) {
+    // Handle both { guests: [...] } and [...] formats
+    const guests = Array.isArray(body) ? body : body.guests;
+    if (!guests || !Array.isArray(guests)) {
+      throw new BadRequestException('Payload must be an array of guests or contain a guests array');
+    }
+    return this.weddingGuestService.createBatch(guests);
+  }
+
   @Post('admin/invites/:id/rotate-url')
   @UseGuards(AdminAuthGuard)
   rotateUrl(@Param('id') id: string) {

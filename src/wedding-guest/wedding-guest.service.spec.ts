@@ -271,4 +271,28 @@ describe('WeddingGuestService', () => {
       );
     });
   });
+
+  describe('createBatch', () => {
+    it('should create multiple guests in a batch', async () => {
+      const dtos = [
+        { name: 'Guest 1', plus_ones_allowed: 1 },
+        { name: 'Guest 2', plus_ones_allowed: 0, token: 'customToken' },
+      ];
+
+      collectionMock.get.mockResolvedValue({ docs: [] }); // No existing tokens
+      docMock.id = 'generated-id';
+      collectionMock.doc.mockReturnValue(docMock);
+
+      const result = await service.createBatch(dtos);
+
+      expect(batchMock.set).toHaveBeenCalledTimes(2);
+      expect(batchMock.commit).toHaveBeenCalledTimes(1);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe('Guest 1');
+      expect(result[0].token).toBeDefined();
+      expect(result[1].name).toBe('Guest 2');
+      expect(result[1].token).toBe('customToken');
+    });
+  });
 });

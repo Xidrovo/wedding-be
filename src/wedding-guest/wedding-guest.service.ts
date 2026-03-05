@@ -58,6 +58,73 @@ export class WeddingGuestService {
     return `${baseUrl}/i/${token}`;
   }
 
+  async createBatch(
+    createWeddingGuestDtos: CreateWeddingGuestDto[],
+  ): Promise<WeddingGuest[]> {
+    try {
+      const batch = this.firestore.batch();
+      const collectionRef = this.firestore.collection(this.collectionName);
+
+      // Fetch all existing tokens to prevent duplicates within the batch and existing
+      const snapshot = await collectionRef.get();
+      const existingTokens = new Set<string>();
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.token) {
+          existingTokens.add(data.token);
+        }
+      });
+
+      const newGuests: WeddingGuest[] = [];
+
+      for (const dto of createWeddingGuestDtos) {
+        const docRef = collectionRef.doc();
+
+        let token = dto.token;
+        if (!token) {
+          token = this.generateToken();
+          while (existingTokens.has(token)) {
+            token = this.generateToken();
+          }
+          existingTokens.add(token);
+        }
+
+        const guestUrl = dto.guest_url || this.buildGuestUrl(token as string);
+
+        const newItem = {
+          name: dto.name,
+          plus_ones_allowed: dto.plus_ones_allowed || 0,
+          token,
+          guest_url: guestUrl,
+          status: dto.status || InvitationStatus.NOT_OPEN,
+          created_at: Timestamp.now(),
+          limit_date: Timestamp.fromDate(
+            new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          ),
+          updated_at: Timestamp.now(),
+        };
+
+        batch.set(docRef, newItem);
+
+        // Push optimistic guest object (id is docRef.id)
+        newGuests.push({
+          id: docRef.id,
+          ...newItem,
+        } as unknown as WeddingGuest);
+      }
+
+      await batch.commit();
+
+      this.logger.log(`Created batch of ${newGuests.length} guests`);
+      this.clearCache(); // clear cache entirely for simplicity since batch affects multiple
+
+      return newGuests;
+    } catch (error) {
+      this.logger.error('Error creating batch of documents:', error);
+      throw error;
+    }
+  }
+
   async create(
     createWeddingGuestDto: CreateWeddingGuestDto,
   ): Promise<WeddingGuest> {
