@@ -69,7 +69,7 @@ describe('WeddingGuestController', () => {
     it('should create a batch of guests with array payload', async () => {
       const guestsData: CreateWeddingGuestDto[] = [
         { name: 'Guest 1' },
-        { name: 'Guest 2' }
+        { name: 'Guest 2' },
       ];
 
       await controller.createBatch(guestsData);
@@ -80,7 +80,7 @@ describe('WeddingGuestController', () => {
     it('should create a batch of guests with object payload containing guests array', async () => {
       const guestsData: CreateWeddingGuestDto[] = [
         { name: 'Guest 1' },
-        { name: 'Guest 2' }
+        { name: 'Guest 2' },
       ];
 
       await controller.createBatch({ guests: guestsData });

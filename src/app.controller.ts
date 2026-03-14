@@ -18,5 +18,4 @@ export class AppController {
       service: 'jyx-wedding-be',
     };
   }
-
 }

@@ -10,13 +10,21 @@ async function bootstrap() {
   // Set global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Ensure Access-Control-Allow-Origin is strictly mapped to production URL
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+    'https://xavieryjuliana.com',
+    'https://www.xavieryjuliana.com',
+  ];
+
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-      'https://xavieryjuliana.com',
-      'https://www.xavieryjuliana.com',
-    ],
+    origin: process.env.NODE_ENV === 'development' ? true : allowedOrigins,
     credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-wedding-secret',
+      'Accept',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });
 
   await app.listen(process.env.PORT ?? 3000);

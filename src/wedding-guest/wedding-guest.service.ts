@@ -89,7 +89,7 @@ export class WeddingGuestService {
           existingTokens.add(token);
         }
 
-        const guestUrl = dto.guest_url || this.buildGuestUrl(token as string);
+        const guestUrl = dto.guest_url || this.buildGuestUrl(token);
 
         const newItem = {
           name: dto.name,
@@ -259,6 +259,47 @@ export class WeddingGuestService {
     this.clearCache(updatedGuest.id, updatedGuest.token);
 
     return updatedGuest;
+  }
+
+  async updateBatch(
+    updateGuests: (UpdateWeddingGuestDto & { id: string })[],
+  ): Promise<{ message: string; count: number }> {
+    try {
+      const batch = this.firestore.batch();
+
+      let operationsCount = 0;
+      for (const updateDto of updateGuests) {
+        if (!updateDto.id) continue;
+
+        const docRef = this.firestore
+          .collection(this.collectionName)
+          .doc(updateDto.id);
+
+        // Strip out fields that should absolutely NEVER be batch updated
+        const { id, token, guest_url, created_at, ...safeUpdateData } =
+          updateDto as any;
+
+        // Only update if there are actually fields to update
+        if (Object.keys(safeUpdateData).length > 0) {
+          batch.update(docRef, {
+            ...safeUpdateData,
+            updated_at: Timestamp.now(),
+          });
+          operationsCount++;
+        }
+      }
+
+      if (operationsCount > 0) {
+        await batch.commit();
+        this.clearCache();
+        this.logger.log(`Updated batch of ${operationsCount} guests`);
+      }
+
+      return { message: 'Batch update successful', count: operationsCount };
+    } catch (error) {
+      this.logger.error('Error updating batch of documents:', error);
+      throw error;
+    }
   }
 
   async rotateUrl(id: string): Promise<{ guest_url: string }> {

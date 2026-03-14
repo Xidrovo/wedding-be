@@ -37,6 +37,13 @@ const initializeNest = async () => {
   app.enableCors({
     origin: true, // This allows any origin
     credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-wedding-secret',
+      'Accept',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });
 
   await app.init();

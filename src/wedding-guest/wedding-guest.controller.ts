@@ -39,6 +39,7 @@ export class WeddingGuestController {
     if (!guests || !Array.isArray(guests)) {
       throw new BadRequestException('Payload must be an array of guests or contain a guests array');
     }
+    
     return this.weddingGuestService.createBatch(guests);
   }
 
@@ -46,6 +47,16 @@ export class WeddingGuestController {
   @UseGuards(AdminAuthGuard)
   rotateUrl(@Param('id') id: string) {
     return this.weddingGuestService.rotateUrl(id);
+  }
+
+  @Patch('admin/invites/batch')
+  @UseGuards(AdminAuthGuard)
+  updateBatch(@Body() body: { guests: (UpdateWeddingGuestDto & { id: string })[] }) {
+    const guests = Array.isArray(body) ? body : body.guests;
+    if (!guests || !Array.isArray(guests)) {
+      throw new BadRequestException('Payload must be an array of guests or contain a guests array');
+    }
+    return this.weddingGuestService.updateBatch(guests);
   }
 
   // Public Endpoints

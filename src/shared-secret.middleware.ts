@@ -13,7 +13,7 @@ export class SharedSecretMiddleware implements NestMiddleware {
 
     // Exclude /health and / from the secret requirement so we can test if the server is live
     if (req.path === '/health' || req.path === '/') {
-        return next();
+      return next();
     }
 
     // If the path is public (e.g. for guest viewing), maybe we shouldn't block it?

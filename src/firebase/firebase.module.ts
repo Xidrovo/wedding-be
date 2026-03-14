@@ -13,9 +13,11 @@ import firebaseConfig from '../config/firebase.config';
         const logger = new Logger('FirebaseModule');
         try {
           if (config.useEmulator) {
-            process.env.FIRESTORE_EMULATOR_HOST = config.emulatorHost || '127.0.0.1:8080';
-            const EMULATOR_PROJECT_ID = 'demo-wedding-project';
-            
+            process.env.FIRESTORE_EMULATOR_HOST =
+              config.emulatorHost || '127.0.0.1:8080';
+            const EMULATOR_PROJECT_ID =
+              config.projectId || 'demo-wedding-project';
+
             return admin.initializeApp(
               { projectId: EMULATOR_PROJECT_ID },
               'EMULATOR_APP',
