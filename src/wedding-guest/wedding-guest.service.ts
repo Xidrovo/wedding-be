@@ -459,6 +459,54 @@ export class WeddingGuestService {
     return guest;
   }
 
+  async extendDeadline(id: string): Promise<{ limit_date: Timestamp }> {
+    const oneWeekFromNow = Timestamp.fromDate(
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    );
+
+    await this.firestore
+      .collection(this.collectionName)
+      .doc(id)
+      .update({
+        limit_date: oneWeekFromNow,
+        updated_at: Timestamp.now(),
+      });
+
+    this.clearCache(id);
+    this.logger.log(`Extended deadline for guest ${id} to 1 week from now`);
+
+    return { limit_date: oneWeekFromNow };
+  }
+
+  async extendAllDeadlines(): Promise<{ message: string; count: number }> {
+    const oneWeekFromNow = Timestamp.fromDate(
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    );
+
+    const snapshot = await this.firestore
+      .collection(this.collectionName)
+      .get();
+
+    const batch = this.firestore.batch();
+    let count = 0;
+
+    for (const doc of snapshot.docs) {
+      batch.update(doc.ref, {
+        limit_date: oneWeekFromNow,
+        updated_at: Timestamp.now(),
+      });
+      count++;
+    }
+
+    if (count > 0) {
+      await batch.commit();
+      this.clearCache();
+      this.logger.log(`Extended deadline 1 week for all ${count} guests`);
+    }
+
+    return { message: 'All deadlines extended by 1 week', count };
+  }
+
   async registerVisit(token: string): Promise<WeddingGuest> {
     const guest = await this.findByToken(token);
 

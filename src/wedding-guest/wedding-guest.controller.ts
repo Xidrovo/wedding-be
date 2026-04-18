@@ -49,6 +49,18 @@ export class WeddingGuestController {
     return this.weddingGuestService.rotateUrl(id);
   }
 
+  @Patch('admin/invites/extend-all-deadlines')
+  @UseGuards(AdminAuthGuard)
+  extendAllDeadlines() {
+    return this.weddingGuestService.extendAllDeadlines();
+  }
+
+  @Patch('admin/invites/:id/extend-deadline')
+  @UseGuards(AdminAuthGuard)
+  extendDeadline(@Param('id') id: string) {
+    return this.weddingGuestService.extendDeadline(id);
+  }
+
   @Patch('admin/invites/batch')
   @UseGuards(AdminAuthGuard)
   updateBatch(@Body() body: { guests: (UpdateWeddingGuestDto & { id: string })[] }) {
