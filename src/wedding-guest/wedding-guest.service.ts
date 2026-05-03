@@ -530,20 +530,6 @@ export class WeddingGuestService {
   ): Promise<WeddingGuest> {
     const guest = await this.findByToken(token);
 
-    const now = Date.now();
-    let limitTime = 0;
-
-    if (guest.limit_date) {
-      limitTime = guest.limit_date.toMillis();
-    } else if (guest.created_at) {
-      // Fallback: 2 weeks = 1209600000 ms
-      limitTime = guest.created_at.toMillis() + 1209600000;
-    }
-
-    if (limitTime > 0 && now > limitTime) {
-      throw new BadRequestException('The deadline to respond has passed');
-    }
-
     const updateData: any = {
       status: status,
       updated_at: Timestamp.now(),
