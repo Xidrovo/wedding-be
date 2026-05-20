@@ -19,6 +19,7 @@ export class WeddingGuest {
 
   guest_url?: string;
   token?: string;
+  phone?: string | null;
 
   plus_ones_confirmed?: number;
   accepted_at?: Timestamp | null;

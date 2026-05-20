@@ -18,6 +18,8 @@
     "start:debug": "cross-env NODE_ENV=development FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 nest start --debug --watch",
     "start:prod": "cross-env NODE_ENV=production node dist/main",
     "seed:local": "cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 NODE_ENV=development npx ts-node scripts/seed-invites.ts",
+    "update-phones": "npx ts-node scripts/update-phone-numbers.ts",
+    "update-phones:dry-run": "cross-env DRY_RUN=true npx ts-node scripts/update-phone-numbers.ts",
     "firebase:emulator": "firebase emulators:start --only firestore",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

@@ -31,4 +31,8 @@ export class CreateWeddingGuestDto {
   @IsNumber()
   @IsOptional()
   plus_ones_confirmed?: number;
+
+  @IsString()
+  @IsOptional()
+  phone?: string | null;
 }
